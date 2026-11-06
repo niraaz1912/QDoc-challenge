@@ -1,5 +1,7 @@
 # QDoc-challenge
 
+For the Azure, Docker, Kubernetes, and GitHub Actions deployment, see [DEPLOYMENT.md](DEPLOYMENT.md).
+
 ## The Problem
 
 Patients often:

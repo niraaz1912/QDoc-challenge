@@ -1,0 +1,102 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: qdoc
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: backend }
+  template:
+    metadata:
+      labels: { app: backend }
+    spec:
+      containers:
+        - name: backend
+          image: __ACR_LOGIN_SERVER__/qdoc-backend:__IMAGE_TAG__
+          ports:
+            - containerPort: 8080
+          env:
+            - name: GEMINI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: backend-secrets
+                  key: GEMINI_API_KEY
+            - name: FIREBASE_PROJECT_ID
+              value: __FIREBASE_PROJECT_ID__
+            - name: GOOGLE_APPLICATION_CREDENTIALS
+              value: /var/run/firebase/service-account.json
+          volumeMounts:
+            - name: firebase-service-account
+              mountPath: /var/run/firebase
+              readOnly: true
+          readinessProbe:
+            httpGet: { path: /health, port: 8080 }
+            initialDelaySeconds: 3
+          livenessProbe:
+            httpGet: { path: /health, port: 8080 }
+            initialDelaySeconds: 10
+          resources:
+            requests: { cpu: 100m, memory: 128Mi }
+            limits: { cpu: 500m, memory: 512Mi }
+      volumes:
+        - name: firebase-service-account
+          secret:
+            secretName: backend-secrets
+            items:
+              - key: service-account.json
+                path: service-account.json
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+  namespace: qdoc
+spec:
+  type: ClusterIP
+  selector: { app: backend }
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: qdoc
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: frontend }
+  template:
+    metadata:
+      labels: { app: frontend }
+    spec:
+      containers:
+        - name: frontend
+          image: __ACR_LOGIN_SERVER__/qdoc-frontend:__IMAGE_TAG__
+          ports:
+            - containerPort: 80
+          readinessProbe:
+            httpGet: { path: /health, port: 80 }
+            initialDelaySeconds: 3
+          livenessProbe:
+            httpGet: { path: /health, port: 80 }
+            initialDelaySeconds: 10
+          resources:
+            requests: { cpu: 50m, memory: 64Mi }
+            limits: { cpu: 250m, memory: 128Mi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+  namespace: qdoc
+spec:
+  type: LoadBalancer
+  selector: { app: frontend }
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80

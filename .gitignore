@@ -64,6 +64,15 @@ node_modules/
 
 # dotenv environment variables file
 .env
+.env.*
+!*.env.example
+
+# Terraform local state and downloaded providers
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+terraform.tfvars
 
 # dataconnect generated files
 .dataconnect

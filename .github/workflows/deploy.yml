@@ -1,0 +1,105 @@
+name: CI and Azure deployment
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            app/client/package-lock.json
+            app/functions/package-lock.json
+      - name: Test backend
+        working-directory: app/functions
+        run: npm ci && npm test
+      - name: Build frontend
+        working-directory: app/client
+        run: npm ci && npm run build
+
+  deploy:
+    if: github.event_name != 'pull_request'
+    needs: verify
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      ACR_NAME: ${{ vars.ACR_NAME }}
+      AKS_NAME: ${{ vars.AKS_NAME }}
+      AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+      FIREBASE_PROJECT_ID: ${{ vars.VITE_FIREBASE_PROJECT_ID }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+      GRAFANA_ADMIN_PASSWORD: ${{ secrets.GRAFANA_ADMIN_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/login@v3
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - uses: azure/setup-kubectl@v4
+      - name: Build and push Docker images
+        env:
+          VITE_FIREBASE_API_KEY: ${{ vars.VITE_FIREBASE_API_KEY }}
+          VITE_FIREBASE_AUTH_DOMAIN: ${{ vars.VITE_FIREBASE_AUTH_DOMAIN }}
+          VITE_FIREBASE_APP_ID: ${{ vars.VITE_FIREBASE_APP_ID }}
+          VITE_GOOGLE_CALENDAR_CLIENT_ID: ${{ vars.VITE_GOOGLE_CALENDAR_CLIENT_ID }}
+          VITE_GOOGLE_CALENDAR_REDIRECT_URI: ${{ vars.VITE_GOOGLE_CALENDAR_REDIRECT_URI }}
+        run: |
+          set -euo pipefail
+          ACR_LOGIN_SERVER="$(az acr show --name "$ACR_NAME" --query loginServer -o tsv)"
+          az acr login --name "$ACR_NAME"
+          docker build --file app/client/Dockerfile \
+            --build-arg "VITE_FIREBASE_API_KEY=$VITE_FIREBASE_API_KEY" \
+            --build-arg "VITE_FIREBASE_AUTH_DOMAIN=$VITE_FIREBASE_AUTH_DOMAIN" \
+            --build-arg "VITE_FIREBASE_PROJECT_ID=$FIREBASE_PROJECT_ID" \
+            --build-arg "VITE_FIREBASE_APP_ID=$VITE_FIREBASE_APP_ID" \
+            --build-arg "VITE_GOOGLE_CALENDAR_CLIENT_ID=$VITE_GOOGLE_CALENDAR_CLIENT_ID" \
+            --build-arg "VITE_GOOGLE_CALENDAR_REDIRECT_URI=$VITE_GOOGLE_CALENDAR_REDIRECT_URI" \
+            --tag "$ACR_LOGIN_SERVER/qdoc-frontend:$GITHUB_SHA" app/client
+          docker build --file app/functions/Dockerfile \
+            --tag "$ACR_LOGIN_SERVER/qdoc-backend:$GITHUB_SHA" app/functions
+          docker push "$ACR_LOGIN_SERVER/qdoc-frontend:$GITHUB_SHA"
+          docker push "$ACR_LOGIN_SERVER/qdoc-backend:$GITHUB_SHA"
+          echo "ACR_LOGIN_SERVER=$ACR_LOGIN_SERVER" >> "$GITHUB_ENV"
+      - name: Deploy to AKS
+        run: |
+          set -euo pipefail
+          az aks get-credentials --resource-group "$AZURE_RESOURCE_GROUP" --name "$AKS_NAME" --admin --overwrite-existing
+          kubectl apply -f k8s/namespace.yaml
+          secret_dir="$(mktemp -d)"
+          trap 'rm -rf "$secret_dir"' EXIT
+          printf '%s' "$GEMINI_API_KEY" > "$secret_dir/GEMINI_API_KEY"
+          printf '%s' "$FIREBASE_SERVICE_ACCOUNT_JSON" > "$secret_dir/service-account.json"
+          printf '%s' "$GRAFANA_ADMIN_PASSWORD" > "$secret_dir/admin-password"
+          kubectl -n qdoc create secret generic backend-secrets \
+            --from-file=GEMINI_API_KEY="$secret_dir/GEMINI_API_KEY" \
+            --from-file=service-account.json="$secret_dir/service-account.json" \
+            --dry-run=client -o yaml | kubectl apply -f -
+          kubectl -n qdoc create secret generic grafana-secrets \
+            --from-file=admin-password="$secret_dir/admin-password" \
+            --dry-run=client -o yaml | kubectl apply -f -
+          sed -e "s#__ACR_LOGIN_SERVER__#$ACR_LOGIN_SERVER#g" \
+              -e "s#__IMAGE_TAG__#$GITHUB_SHA#g" \
+              -e "s#__FIREBASE_PROJECT_ID__#$FIREBASE_PROJECT_ID#g" \
+              k8s/app.yaml | kubectl apply -f -
+          kubectl apply -f k8s/monitoring.yaml
+          kubectl -n qdoc rollout status deployment/backend --timeout=5m
+          kubectl -n qdoc rollout status deployment/frontend --timeout=5m
+          kubectl -n qdoc rollout status deployment/prometheus --timeout=5m
+          kubectl -n qdoc rollout status deployment/grafana --timeout=5m
+          kubectl -n qdoc get service frontend

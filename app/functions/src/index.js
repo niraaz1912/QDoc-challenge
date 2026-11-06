@@ -3,12 +3,36 @@ import * as functions from "firebase-functions";
 import express from "express";
 import cors from "cors";
 import { GoogleGenAI } from "@google/genai";
+import { applicationDefault, getApps, initializeApp } from "firebase-admin/app";
+import { getAuth } from "firebase-admin/auth";
 
 const app = express();
+export { app };
 
-// --- Simple in-memory conversation memory (per profileId) ---
+const requestCounts = new Map();
+app.use((req, res, next) => {
+  if (req.path === "/metrics") return next();
+  res.on("finish", () => {
+    const key = `${req.method}|${req.route?.path || "unmatched"}|${res.statusCode}`;
+    requestCounts.set(key, (requestCounts.get(key) || 0) + 1);
+  });
+  next();
+});
+
+app.get("/health", (_req, res) => res.json({ status: "ok" }));
+app.get("/metrics", (_req, res) => {
+  const lines = ["# HELP qdoc_http_requests_total HTTP requests handled by the backend.", "# TYPE qdoc_http_requests_total counter"];
+  for (const [key, count] of requestCounts) {
+    const [method, route, status] = key.split("|");
+    const safeRoute = route.replace(/[^a-zA-Z0-9_/:.-]/g, "_");
+    lines.push(`qdoc_http_requests_total{method="${method}",route="${safeRoute}",status="${status}"} ${count}`);
+  }
+  res.type("text/plain; version=0.0.4").send(`${lines.join("\n")}\n`);
+});
+
+// --- Simple in-memory conversation memory (per authenticated user) ---
 // NOTE: This resets when the functions instance restarts. For persistent memory, store in Firestore.
-const conversations = new Map(); // profileId -> [{ role: "user"|"model", parts: [{text:string}] }]
+const conversations = new Map(); // uid -> [{ role: "user"|"model", parts: [{text:string}] }]
 
 function clampArray(arr, max) {
   if (!Array.isArray(arr)) return [];
@@ -84,9 +108,26 @@ app.use(
   })
 );
 
-app.post("/chat", async (req, res) => {
+async function requireFirebaseUser(req, res, next) {
+  const token = req.headers.authorization?.match(/^Bearer (.+)$/)?.[1];
+  if (!token) return res.status(401).json({ error: "Authentication required" });
   try {
-    const { profileId, question, context } = req.body || {};
+    if (!getApps().length) {
+      initializeApp({
+        credential: applicationDefault(),
+        projectId: process.env.FIREBASE_PROJECT_ID || process.env.GCLOUD_PROJECT,
+      });
+    }
+    req.firebaseUser = await getAuth().verifyIdToken(token);
+    next();
+  } catch {
+    return res.status(401).json({ error: "Invalid authentication token" });
+  }
+}
+
+app.post("/chat", requireFirebaseUser, async (req, res) => {
+  try {
+    const { question, context } = req.body || {};
     if (!question) return res.status(400).json({ error: "Missing question" });
 
     const apiKey = process.env.GEMINI_API_KEY;
@@ -95,7 +136,7 @@ app.post("/chat", async (req, res) => {
 
     const ai = new GoogleGenAI({ apiKey });
 
-    const key = profileId || "anon";
+    const key = req.firebaseUser.uid;
     const history = conversations.get(key) || [];
 
     const contextSummary = summarizeContext(context);
@@ -128,7 +169,6 @@ ${JSON.stringify(contextSummary, null, 2)}`;
       { role: "user", parts: [{ text: String(question) }] },
     ];
 
-    console.log("Chat request:", { systemInstruction, contents });
     const response = await ai.models.generateContent({
       model,
       contents,

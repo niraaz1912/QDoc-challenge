@@ -1,10 +1,16 @@
+import { auth } from "../firebase.js";
+
 const BASE_URL =
   import.meta.env.VITE_API_BASE_URL || "";
 
 async function request(path, { method = "GET", body } = {}) {
+  const token = await auth.currentUser?.getIdToken();
   const res = await fetch(`${BASE_URL}${path}`, {
     method,
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
     body: body ? JSON.stringify(body) : undefined
   });
 
