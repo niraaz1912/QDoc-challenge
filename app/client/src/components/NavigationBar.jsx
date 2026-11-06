@@ -2,14 +2,23 @@ import React from "react";
 import { Sidebar } from "react-pro-sidebar";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { CgProfile, CgHome } from "react-icons/cg";
-import { FaHistory, FaTimes, FaSignOutAlt } from "react-icons/fa";
+import { FaHistory, FaTimes, FaSignOutAlt, FaNetworkWired } from "react-icons/fa";
 import { TbVaccineBottle } from "react-icons/tb";
 import { useAuth } from "../hooks/useAuth"; // <-- adjust if needed
 
 function NavigationBar({ isOpen, onClose, sidebarWidth = 260 }) {
   const location = useLocation();
   const navigate = useNavigate();
-  const { logout } = useAuth(); // if your hook uses a different name, adjust here
+  const { logout, user } = useAuth(); // if your hook uses a different name, adjust here
+  const [clusterViewer, setClusterViewer] = React.useState(false);
+
+  React.useEffect(() => {
+    let live = true;
+    user?.getIdTokenResult().then((result) => {
+      if (live) setClusterViewer(result.claims.clusterViewer === true);
+    }).catch(() => { if (live) setClusterViewer(false); });
+    return () => { live = false; };
+  }, [user]);
 
   if (!isOpen) return null;
 
@@ -18,6 +27,7 @@ function NavigationBar({ isOpen, onClose, sidebarWidth = 260 }) {
     { to: "/vaccination-history", label: "Vaccination History", icon: <FaHistory /> },
     { to: "/profile", label: "Update Profile", icon: <CgProfile /> },
     { to: "/vaccination-eligibility", label: "Vaccination Eligibility", icon: <TbVaccineBottle /> },
+    ...(clusterViewer ? [{ to: "/ops/cluster", label: "Live Cluster", icon: <FaNetworkWired /> }] : []),
   ];
 
   async function handleSignOut() {

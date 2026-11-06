@@ -1,0 +1,83 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: cluster-observer
+  namespace: qdoc
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: qdoc-cluster-observer
+rules:
+  - apiGroups: [""]
+    resources: ["nodes", "pods", "services"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["discovery.k8s.io"]
+    resources: ["endpointslices"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["metrics.k8s.io"]
+    resources: ["nodes", "pods"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: qdoc-cluster-observer
+subjects:
+  - kind: ServiceAccount
+    name: cluster-observer
+    namespace: qdoc
+roleRef:
+  kind: ClusterRole
+  name: qdoc-cluster-observer
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cluster-observer
+  namespace: qdoc
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: cluster-observer }
+  template:
+    metadata:
+      labels: { app: cluster-observer }
+    spec:
+      serviceAccountName: cluster-observer
+      containers:
+        - name: cluster-observer
+          image: __ACR_LOGIN_SERVER__/qdoc-cluster-observer:__IMAGE_TAG__
+          env:
+            - name: CLUSTER_OBSERVER_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: cluster-observer-auth
+                  key: token
+          ports:
+            - containerPort: 8080
+          readinessProbe:
+            httpGet: { path: /health, port: 8080 }
+            initialDelaySeconds: 3
+          livenessProbe:
+            httpGet: { path: /health, port: 8080 }
+            initialDelaySeconds: 10
+          resources:
+            requests: { cpu: 50m, memory: 96Mi }
+            limits: { cpu: 300m, memory: 384Mi }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cluster-observer
+  namespace: qdoc
+spec:
+  type: ClusterIP
+  selector: { app: cluster-observer }
+  ports:
+    - port: 8080
+      targetPort: 8080

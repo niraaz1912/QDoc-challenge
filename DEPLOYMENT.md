@@ -104,6 +104,25 @@ In the tunnel's **Routes**, add a **Published application** with hostname `keepm
 
 Run the deployment workflow again from GitHub Actions or push a commit. The optional Cloudflare step creates the Kubernetes secret and starts one `cloudflared` pod. Wait for the tunnel to show **Healthy**, then test `https://keepmealive.niraajojha.com/` and `https://keepmealive.niraajojha.com/api/health`. Add `keepmealive.niraajojha.com` to Firebase Authentication **Settings → Authorized domains** and test sign-in and chat. The existing Azure load balancer remains available during this transition; remove it only after the HTTPS hostname works.
 
+## 5. Live cluster observatory
+
+The `/ops/cluster` page streams live Kubernetes node, pod, service, EndpointSlice, and deployment state from the internal Go observer. The observer holds a read-only service account. Express verifies a Firebase ID token with the `clusterViewer` custom claim before bridging the WebSocket, and an internal token protects the observer service. The deployment workflow generates that internal token in a Kubernetes Secret on the first run. No Kubernetes credentials or patient data are sent to the browser.
+
+Grant access only to a trusted administrator. From `app/functions`, point `GOOGLE_APPLICATION_CREDENTIALS` at the Firebase service-account JSON stored **outside the repository**, then run:
+
+```powershell
+$env:GOOGLE_APPLICATION_CREDENTIALS="C:\path\to\firebase-service-account.json"
+node scripts/grant-cluster-viewer.js your-admin-email@example.com
+```
+
+Sign out and back in, then open `https://keepmealive.niraajojha.com/ops/cluster`. The page shows the entire cluster when **All namespaces** is selected. CPU and memory come from the Kubernetes Metrics API every 15 seconds; if that API is unavailable, usage is shown as unavailable. Service links are based on actual EndpointSlices, and pod failures come from live status. The current version does **not** claim to show packet-level traffic or historical playback: those require a network-flow source and durable event storage.
+
+After deployment, an operator with AKS admin credentials can also grant the claim inside the running backend pod, where the Firebase credential is already mounted:
+
+```powershell
+kubectl -n qdoc exec deployment/backend -- node scripts/grant-cluster-viewer.js your-admin-email@example.com
+```
+
 ## Production follow-up
 
 The manifest still exposes HTTP on a public Azure load balancer for initial verification and rollback. After the Cloudflare hostname works, change the frontend service to `ClusterIP` to remove direct public HTTP access. The one-node AKS cluster and `emptyDir` Prometheus storage are for development only; use persistent monitoring storage for a resilient service. Existing SMS integration calls a separate Twilio Function and is not deployed by this pipeline.

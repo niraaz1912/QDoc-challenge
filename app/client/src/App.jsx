@@ -9,6 +9,7 @@ import Profile from "./pages/profile/Profile";
 import Dashboard from "./pages/dashboard/Dashboard";
 import VaccinationHistory from "./pages/vaccination/VaccinationHistory";
 import VaccineEligibility from "./components/VaccineEligibility";
+import ClusterLive from "./pages/cluster/ClusterLive";
 function ClinicHome() {
   return <div style={{ padding: 16 }}>Clinic Dashboard</div>;
 }
@@ -56,6 +57,7 @@ function App() {
               path="/clinic"
               element={<ClinicHome />}
             />
+            <Route path="/ops/cluster" element={<ClusterLive />} />
           </Route>
 
           <Route
