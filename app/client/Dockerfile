@@ -1,8 +1,9 @@
 FROM node:24-alpine AS build
-WORKDIR /app
-COPY package*.json ./
+WORKDIR /app/client
+COPY client/package*.json ./
 RUN npm ci
-COPY . .
+COPY client/ ./
+COPY contracts/ /app/contracts/
 ARG VITE_FIREBASE_API_KEY
 ARG VITE_FIREBASE_AUTH_DOMAIN
 ARG VITE_FIREBASE_PROJECT_ID
@@ -19,6 +20,6 @@ ENV VITE_API_BASE_URL=/api \
 RUN npm run build
 
 FROM nginx:1.27-alpine
-COPY nginx.conf /etc/nginx/conf.d/default.conf
-COPY --from=build /app/dist /usr/share/nginx/html
+COPY client/nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=build /app/client/dist /usr/share/nginx/html
 EXPOSE 80

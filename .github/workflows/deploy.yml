@@ -70,7 +70,7 @@ jobs:
             --build-arg "VITE_FIREBASE_APP_ID=$VITE_FIREBASE_APP_ID" \
             --build-arg "VITE_GOOGLE_CALENDAR_CLIENT_ID=$VITE_GOOGLE_CALENDAR_CLIENT_ID" \
             --build-arg "VITE_GOOGLE_CALENDAR_REDIRECT_URI=$VITE_GOOGLE_CALENDAR_REDIRECT_URI" \
-            --tag "$ACR_LOGIN_SERVER/qdoc-frontend:$GITHUB_SHA" app/client
+            --tag "$ACR_LOGIN_SERVER/qdoc-frontend:$GITHUB_SHA" app
           docker build --file app/functions/Dockerfile \
             --tag "$ACR_LOGIN_SERVER/qdoc-backend:$GITHUB_SHA" app/functions
           docker push "$ACR_LOGIN_SERVER/qdoc-frontend:$GITHUB_SHA"
