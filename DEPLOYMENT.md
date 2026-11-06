@@ -59,6 +59,7 @@ In the GitHub repository's **production environment**, set these secrets:
 | `GEMINI_API_KEY` | Gemini API key |
 | `FIREBASE_SERVICE_ACCOUNT_JSON` | Full Firebase service account JSON for token verification |
 | `GRAFANA_ADMIN_PASSWORD` | Grafana admin password |
+| `CLOUDFLARE_TUNNEL_TOKEN` | Optional token for the Cloudflare Tunnel serving `keepmealive.niraajojha.com` |
 
 Set these GitHub environment variables:
 
@@ -95,9 +96,17 @@ kubectl -n qdoc port-forward service/grafana 3000:3000
 
 Prometheus is at `http://localhost:9090`; Grafana is at `http://localhost:3000` (username `admin`, password from the GitHub secret). Query `qdoc_http_requests_total` to see backend request counts.
 
+## 4. Add the Cloudflare subdomain
+
+In Cloudflare, open **Networking → Tunnels**, create a remotely managed tunnel named `qdoc-aks`, and choose **Docker**. Copy only the token from the displayed command into the GitHub `production` environment secret `CLOUDFLARE_TUNNEL_TOKEN`. Do not commit the token or the full command.
+
+In the tunnel's **Routes**, add a **Published application** with hostname `keepmealive.niraajojha.com` and service URL `http://frontend.qdoc.svc.cluster.local:80`. Cloudflare creates the DNS record for this route; if an old DNS record already uses `keepmealive`, remove it before adding the route.
+
+Run the deployment workflow again from GitHub Actions or push a commit. The optional Cloudflare step creates the Kubernetes secret and starts one `cloudflared` pod. Wait for the tunnel to show **Healthy**, then test `https://keepmealive.niraajojha.com/` and `https://keepmealive.niraajojha.com/api/health`. Add `keepmealive.niraajojha.com` to Firebase Authentication **Settings → Authorized domains** and test sign-in and chat. The existing Azure load balancer remains available during this transition; remove it only after the HTTPS hostname works.
+
 ## Production follow-up
 
-The manifest exposes HTTP on a public Azure load balancer for initial verification. Put the frontend behind **HTTPS with a domain** before using it with real patient data. Add that domain in Firebase Authentication's authorized domains and update any Google Calendar OAuth redirect URI. The one-node AKS cluster and `emptyDir` Prometheus storage are for development only; use persistent monitoring storage for a resilient service. Existing SMS integration calls a separate Twilio Function and is not deployed by this pipeline.
+The manifest still exposes HTTP on a public Azure load balancer for initial verification and rollback. After the Cloudflare hostname works, change the frontend service to `ClusterIP` to remove direct public HTTP access. The one-node AKS cluster and `emptyDir` Prometheus storage are for development only; use persistent monitoring storage for a resilient service. Existing SMS integration calls a separate Twilio Function and is not deployed by this pipeline.
 
 ## Local development
 
