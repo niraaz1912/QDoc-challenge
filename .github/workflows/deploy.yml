@@ -24,6 +24,15 @@ jobs:
       - name: Test backend
         working-directory: app/functions
         run: npm ci && npm test
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.x'
+          cache-dependency-path: app/cluster-observer/go.sum
+      - name: Test cluster observer
+        working-directory: app/cluster-observer
+        run: go test ./...
+      - name: Build cluster observer image
+        run: docker build --file app/cluster-observer/Dockerfile --tag qdoc-cluster-observer:ci app/cluster-observer
       - name: Build frontend
         working-directory: app/client
         run: npm ci && npm run build
@@ -74,8 +83,11 @@ jobs:
             --tag "$ACR_LOGIN_SERVER/qdoc-frontend:$GITHUB_SHA" app
           docker build --file app/functions/Dockerfile \
             --tag "$ACR_LOGIN_SERVER/qdoc-backend:$GITHUB_SHA" app/functions
+          docker build --file app/cluster-observer/Dockerfile \
+            --tag "$ACR_LOGIN_SERVER/qdoc-cluster-observer:$GITHUB_SHA" app/cluster-observer
           docker push "$ACR_LOGIN_SERVER/qdoc-frontend:$GITHUB_SHA"
           docker push "$ACR_LOGIN_SERVER/qdoc-backend:$GITHUB_SHA"
+          docker push "$ACR_LOGIN_SERVER/qdoc-cluster-observer:$GITHUB_SHA"
           echo "ACR_LOGIN_SERVER=$ACR_LOGIN_SERVER" >> "$GITHUB_ENV"
       - name: Deploy to AKS
         run: |
@@ -94,11 +106,19 @@ jobs:
           kubectl -n qdoc create secret generic grafana-secrets \
             --from-file=admin-password="$secret_dir/admin-password" \
             --dry-run=client -o yaml | kubectl apply -f -
+          if ! kubectl -n qdoc get secret cluster-observer-auth >/dev/null 2>&1; then
+            kubectl -n qdoc create secret generic cluster-observer-auth \
+              --from-literal=token="$(openssl rand -hex 32)"
+          fi
           sed -e "s#__ACR_LOGIN_SERVER__#$ACR_LOGIN_SERVER#g" \
               -e "s#__IMAGE_TAG__#$GITHUB_SHA#g" \
               -e "s#__FIREBASE_PROJECT_ID__#$FIREBASE_PROJECT_ID#g" \
               k8s/app.yaml | kubectl apply -f -
+          sed -e "s#__ACR_LOGIN_SERVER__#$ACR_LOGIN_SERVER#g" \
+              -e "s#__IMAGE_TAG__#$GITHUB_SHA#g" \
+              k8s/cluster-observer.yaml | kubectl apply -f -
           kubectl apply -f k8s/monitoring.yaml
+          kubectl -n qdoc rollout status deployment/cluster-observer --timeout=5m
           kubectl -n qdoc rollout status deployment/backend --timeout=5m
           kubectl -n qdoc rollout status deployment/frontend --timeout=5m
           kubectl -n qdoc rollout status deployment/prometheus --timeout=5m

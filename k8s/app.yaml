@@ -26,6 +26,11 @@ spec:
               value: __FIREBASE_PROJECT_ID__
             - name: GOOGLE_APPLICATION_CREDENTIALS
               value: /var/run/firebase/service-account.json
+            - name: CLUSTER_OBSERVER_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: cluster-observer-auth
+                  key: token
           volumeMounts:
             - name: firebase-service-account
               mountPath: /var/run/firebase

@@ -108,9 +108,8 @@ app.use(
   })
 );
 
-async function requireFirebaseUser(req, res, next) {
-  const token = req.headers.authorization?.match(/^Bearer (.+)$/)?.[1];
-  if (!token) return res.status(401).json({ error: "Authentication required" });
+export async function verifyFirebaseIdToken(token) {
+  if (!token) throw new Error("Authentication required");
   try {
     if (!getApps().length) {
       initializeApp({
@@ -118,7 +117,17 @@ async function requireFirebaseUser(req, res, next) {
         projectId: process.env.FIREBASE_PROJECT_ID || process.env.GCLOUD_PROJECT,
       });
     }
-    req.firebaseUser = await getAuth().verifyIdToken(token);
+    return await getAuth().verifyIdToken(token);
+  } catch {
+    throw new Error("Invalid authentication token");
+  }
+}
+
+async function requireFirebaseUser(req, res, next) {
+  const token = req.headers.authorization?.match(/^Bearer (.+)$/)?.[1];
+  if (!token) return res.status(401).json({ error: "Authentication required" });
+  try {
+    req.firebaseUser = await verifyFirebaseIdToken(token);
     next();
   } catch {
     return res.status(401).json({ error: "Invalid authentication token" });
