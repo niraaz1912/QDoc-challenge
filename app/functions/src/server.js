@@ -38,7 +38,7 @@ wss.on("connection", (client) => {
         { headers: { Authorization: `Bearer ${sharedToken}` } }
       );
       upstream.on("message", (data) => {
-        if (client.readyState === WebSocket.OPEN) client.send(data);
+        if (client.readyState === WebSocket.OPEN) client.send(data.toString(), { binary: false });
       });
       upstream.on("close", () => client.close(1011, "Cluster stream ended"));
       upstream.on("error", () => client.close(1011, "Cluster stream unavailable"));
