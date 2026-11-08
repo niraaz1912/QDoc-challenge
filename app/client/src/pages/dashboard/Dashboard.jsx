@@ -71,7 +71,7 @@ function buildShortSms(toName, daysWindow, reminderItems) {
   });
 
   const more = reminderItems.length > top.length ? ` +${reminderItems.length - top.length} more` : "";
-  return `KeepMeAlive: Hi ${toName}. Next ${daysWindow}d: ${lines.join(" | ")}${more}`;
+  return `VaxTrack: Hi ${toName}. Next ${daysWindow}d: ${lines.join(" | ")}${more}`;
 }
 
 function buildSmsMessage({ toName, daysWindow, reminderItems }) {
@@ -82,7 +82,7 @@ function buildSmsMessage({ toName, daysWindow, reminderItems }) {
   });
 
   const more = reminderItems.length > top.length ? `\n+${reminderItems.length - top.length} more…` : "";
-  return `KeepMeAlive: Hi ${toName}! Vaccines due in next ${daysWindow} days:\n${lines.join("\n")}${more}`;
+  return `VaxTrack: Hi ${toName}! Vaccines due in next ${daysWindow} days:\n${lines.join("\n")}${more}`;
 }
 
 function statusPillStyle(status) {
@@ -312,7 +312,7 @@ export default function Dashboard() {
 
         {/* Hero */}
         <div style={styles.hero}>
-          <div style={styles.heroTitle}>KeepMeAlive</div>
+          <div style={styles.heroTitle}>VaxTrack</div>
           <div style={styles.heroSub}>
             Know what you need, when you need it — and most importantly <b>why</b> you need it.
           </div>

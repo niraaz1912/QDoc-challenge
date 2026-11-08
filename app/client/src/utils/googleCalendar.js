@@ -105,7 +105,7 @@ function buildEvent(vaccine) {
   return {
     summary: `Vaccine due: ${vaccine.name}`,
     description:
-      `Upcoming vaccine reminder from QDoc.\n\n` +
+      `Upcoming vaccine reminder from VaxTrack.\n\n` +
       `Vaccine: ${vaccine.name}\n` +
       `Status: ${vaccine.status}\n` +
       `Due date: ${dueDate}`,

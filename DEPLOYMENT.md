@@ -59,7 +59,7 @@ In the GitHub repository's **production environment**, set these secrets:
 | `GEMINI_API_KEY` | Gemini API key |
 | `FIREBASE_SERVICE_ACCOUNT_JSON` | Full Firebase service account JSON for token verification |
 | `GRAFANA_ADMIN_PASSWORD` | Grafana admin password |
-| `CLOUDFLARE_TUNNEL_TOKEN` | Optional token for the Cloudflare Tunnel serving `keepmealive.niraajojha.com` |
+| `CLOUDFLARE_TUNNEL_TOKEN` | Optional token for the Cloudflare Tunnel serving `vaxtrack.niraajojha.com` |
 
 Set these GitHub environment variables:
 
@@ -96,13 +96,15 @@ kubectl -n qdoc port-forward service/grafana 3000:3000
 
 Prometheus is at `http://localhost:9090`; Grafana is at `http://localhost:3000` (username `admin`, password from the GitHub secret). Query `qdoc_http_requests_total` to see backend request counts.
 
-## 4. Add the Cloudflare subdomain
+## 4. Publish the VaxTrack subdomain
 
-In Cloudflare, open **Networking → Tunnels**, create a remotely managed tunnel named `qdoc-aks`, and choose **Docker**. Copy only the token from the displayed command into the GitHub `production` environment secret `CLOUDFLARE_TUNNEL_TOKEN`. Do not commit the token or the full command.
+The existing remotely managed tunnel and `cloudflared` pod can serve another hostname; a new AKS cluster or tunnel is not needed. For a fresh setup, create a tunnel in Cloudflare under **Networking → Tunnels**, choose **Docker**, and put only its token in the GitHub `production` environment secret `CLOUDFLARE_TUNNEL_TOKEN`. Do not commit the token or the full command.
 
-In the tunnel's **Routes**, add a **Published application** with hostname `keepmealive.niraajojha.com` and service URL `http://frontend.qdoc.svc.cluster.local:80`. Cloudflare creates the DNS record for this route; if an old DNS record already uses `keepmealive`, remove it before adding the route.
+On the existing tunnel's **Routes** tab, choose **Add route → Published application**. Set subdomain `vaxtrack`, domain `niraajojha.com`, and service URL `http://frontend.qdoc.svc.cluster.local:80`, then save. Cloudflare creates the DNS record for this route. If another record already uses `vaxtrack`, resolve that conflict before saving. See [Cloudflare's published application instructions](https://developers.cloudflare.com/cloudflare-one/networks/routes/add-routes/).
 
-Run the deployment workflow again from GitHub Actions or push a commit. The optional Cloudflare step creates the Kubernetes secret and starts one `cloudflared` pod. Wait for the tunnel to show **Healthy**, then test `https://keepmealive.niraajojha.com/` and `https://keepmealive.niraajojha.com/api/health`. Add `keepmealive.niraajojha.com` to Firebase Authentication **Settings → Authorized domains** and test sign-in and chat. The existing Azure load balancer remains available during this transition; remove it only after the HTTPS hostname works.
+In Firebase project `q-doc-challenge`, open **Authentication → Settings → Authorized domains** and add `vaxtrack.niraajojha.com` ([Firebase instructions](https://firebase.google.com/docs/auth/web/email-link-auth)). This is the website hostname, not a new Firebase project. If Google Calendar OAuth or another external service has an allowed-origin list, add the new origin there as well when using that feature.
+
+Run the deployment workflow again from GitHub Actions or push a commit to publish the VaxTrack UI. The workflow reuses the existing tunnel token and pod. Wait for the tunnel to show **Healthy**, then test `https://vaxtrack.niraajojha.com/`, `/api/health`, login, chat, and `/ops/cluster` with a viewer account. Remove the previous hostname route and DNS record only after the new address works. The existing Azure load balancer remains available during this transition; remove it only after the HTTPS hostname works.
 
 ## 5. Live cluster observatory
 
@@ -115,7 +117,7 @@ $env:GOOGLE_APPLICATION_CREDENTIALS="C:\path\to\firebase-service-account.json"
 node scripts/grant-cluster-viewer.js your-admin-email@example.com
 ```
 
-Sign out and back in, then open `https://keepmealive.niraajojha.com/ops/cluster`. The page shows the entire cluster when **All namespaces** is selected. CPU and memory come from the Kubernetes Metrics API every 15 seconds; if that API is unavailable, usage is shown as unavailable. Service links are based on actual EndpointSlices, and pod failures come from live status. The current version does **not** claim to show packet-level traffic or historical playback: those require a network-flow source and durable event storage.
+Sign out and back in, then open `https://vaxtrack.niraajojha.com/ops/cluster`. The page shows the entire cluster when **All namespaces** is selected. CPU and memory come from the Kubernetes Metrics API every 15 seconds; if that API is unavailable, usage is shown as unavailable. Service links are based on actual EndpointSlices, and pod failures come from live status. The current version does **not** claim to show packet-level traffic or historical playback: those require a network-flow source and durable event storage.
 
 After deployment, an operator with AKS admin credentials can also grant the claim inside the running backend pod, where the Firebase credential is already mounted:
 

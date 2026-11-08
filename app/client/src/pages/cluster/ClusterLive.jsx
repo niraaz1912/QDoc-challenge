@@ -120,7 +120,7 @@ export default function ClusterLive() {
 
   return <main className="cluster-page">
     <header className="cluster-header">
-      <div><div className="cluster-eyebrow">QDOC / OPERATIONS</div><h1>Cluster map</h1><p>One view of the workloads running in AKS.</p></div>
+      <div><div className="cluster-eyebrow">VAXTRACK / OPERATIONS</div><h1>Cluster map</h1><p>One view of the workloads running in AKS.</p></div>
       <div className="cluster-header-right"><span className={`cluster-connection ${connection}`}><i />{connection}</span><small>{snapshot.at ? `Updated ${new Date(snapshot.at).toLocaleTimeString()}` : "Waiting for cluster data"}</small></div>
     </header>
 

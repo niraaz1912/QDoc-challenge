@@ -1,6 +1,10 @@
-# QDoc-challenge
+# VaxTrack
+
+The repository and existing cloud resource IDs still use the original QDoc challenge identifiers.
 
 For the Azure, Docker, Kubernetes, and GitHub Actions deployment, see [DEPLOYMENT.md](DEPLOYMENT.md).
+
+For a beginner-friendly explanation of the application, infrastructure, deployment history, and live cluster page, see [PROJECT_EXPLAINED.md](PROJECT_EXPLAINED.md).
 
 ## The Problem
 
