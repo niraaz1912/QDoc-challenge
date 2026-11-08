@@ -797,10 +797,9 @@ const styles = {
       "radial-gradient(1200px 600px at 10% 10%, rgba(59,130,246,0.12), transparent 60%), radial-gradient(900px 500px at 85% 15%, rgba(16,185,129,0.10), transparent 55%), radial-gradient(900px 500px at 50% 95%, rgba(168,85,247,0.10), transparent 55%), linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)",
     fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif",
     position: "relative",
-    overflowX: "hidden",
   },
 
-  bgLayer: { position: "absolute", inset: 0, pointerEvents: "none", zIndex: 0 },
+  bgLayer: { position: "absolute", inset: 0, overflow: "hidden", pointerEvents: "none", zIndex: 0 },
   blob: { position: "absolute", filter: "blur(46px)", opacity: 0.9, transform: "translateZ(0)" },
   blob1: { width: 520, height: 520, left: -140, top: 60, borderRadius: 999, background: "rgba(59,130,246,0.22)" },
   blob2: { width: 560, height: 560, right: -200, top: 120, borderRadius: 999, background: "rgba(16,185,129,0.18)" },
