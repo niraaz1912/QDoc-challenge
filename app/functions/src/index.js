@@ -140,7 +140,7 @@ app.post("/chat", requireFirebaseUser, async (req, res) => {
     if (!question) return res.status(400).json({ error: "Missing question" });
 
     const apiKey = process.env.GEMINI_API_KEY;
-    const model = process.env.GEMINI_MODEL || "gemini-2.0-flash";
+    const model = process.env.GEMINI_MODEL || "gemini-3.8-flash";
     if (!apiKey) return res.status(500).json({ error: "Missing GEMINI_API_KEY" });
 
     const ai = new GoogleGenAI({ apiKey });
@@ -204,8 +204,12 @@ ${JSON.stringify(contextSummary, null, 2)}`;
 
     return res.json({ answer });
   } catch (err) {
-    console.error("Chat error:", err);
-    return res.status(500).json({ error: err?.message || "Unknown error" });
+    console.error("Chat error:", { status: err?.status, message: err?.message });
+    const status = err?.status === 429 ? 503 : 502;
+    const message = err?.status === 429
+      ? "The assistant is busy. Please try again shortly."
+      : "The assistant is temporarily unavailable. Please try again later.";
+    return res.status(status).json({ error: message });
   }
 });
 

@@ -47,10 +47,10 @@ export default function ChatWidget({ profileId = "p1", profile, eligibility }) {
       const answerText = res?.answer ?? res ?? "I couldn't generate a response.";
 
       setMessages((m) => [...m, { role: "assistant", text: String(answerText) }]);
-    } catch {
+    } catch (error) {
       setMessages((m) => [
         ...m,
-        { role: "assistant", text: "⚠️ Connection error. Please try again." },
+        { role: "assistant", text: error?.message || "The assistant is unavailable. Please try again." },
       ]);
     } finally {
       setLoading(false);
