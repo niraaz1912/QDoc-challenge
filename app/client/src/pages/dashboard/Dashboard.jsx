@@ -1,5 +1,5 @@
 // src/pages/dashboard/Dashboard.jsx
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import ChatWidget from "../../components/chat/ChatWidget";
 import { useAuth } from "../../hooks/useAuth";
 import { VACCINES } from "../../../../contracts/constants";
@@ -74,17 +74,6 @@ function buildShortSms(toName, daysWindow, reminderItems) {
   return `VaxTrack: Hi ${toName}. Next ${daysWindow}d: ${lines.join(" | ")}${more}`;
 }
 
-function buildSmsMessage({ toName, daysWindow, reminderItems }) {
-  const top = reminderItems.slice(0, 4); // keep SMS short
-  const lines = top.map((v) => {
-    const remaining = v.daysUntil <= 0 ? "DUE/OVERDUE" : `${v.daysUntil}d`;
-    return `- ${v.name}: ${v.duePretty} (${remaining})`;
-  });
-
-  const more = reminderItems.length > top.length ? `\n+${reminderItems.length - top.length} more…` : "";
-  return `VaxTrack: Hi ${toName}! Vaccines due in next ${daysWindow} days:\n${lines.join("\n")}${more}`;
-}
-
 function statusPillStyle(status) {
   if (status === UI_STATUS.OVERDUE)
     return {
@@ -138,6 +127,13 @@ export default function Dashboard() {
   // Micro-interactions
   const [hoverRowId, setHoverRowId] = useState(null);
   const [btnHover, setBtnHover] = useState({ chat: false, primary: false, logout: false });
+
+  useEffect(() => {
+    if (!chatOpen) return undefined;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = previousOverflow; };
+  }, [chatOpen]);
 
   const profile = userDoc || {};
   const titleName =
@@ -819,9 +815,9 @@ const styles = {
   },
 
   center: { minHeight: "100vh", display: "grid", placeItems: "center" },
-  container: { position: "relative", zIndex: 1, maxWidth: 1440, margin: "0 auto", padding: "80px 64px" },
+  container: { position: "relative", zIndex: 1, maxWidth: 1440, margin: "0 auto", padding: "clamp(56px, 7vw, 80px) clamp(16px, 4vw, 64px) 112px" },
 
-  welcomeRow: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 96 },
+  welcomeRow: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16, marginBottom: "clamp(32px, 6vw, 96px)" },
   welcomeText: { fontSize: 15, letterSpacing: "-0.005em" },
 
   logoutInline: {
@@ -838,9 +834,9 @@ const styles = {
   },
   logoutInlineHover: { transform: "translateY(-1px)", background: "rgba(255,255,255,0.92)" },
 
-  hero: { textAlign: "center", marginBottom: 120 },
-  heroTitle: { fontSize: 72, fontWeight: 900, color: "#0f172a", letterSpacing: "-0.03em" },
-  heroSub: { marginTop: 10, fontSize: 18, color: "#475569", maxWidth: 760, margin: "0 auto", lineHeight: 1.55 },
+  hero: { textAlign: "center", marginBottom: "clamp(40px, 8vw, 120px)" },
+  heroTitle: { fontSize: "clamp(42px, 7vw, 72px)", fontWeight: 900, color: "#0f172a", letterSpacing: "-0.03em" },
+  heroSub: { fontSize: "clamp(15px, 2vw, 18px)", color: "#475569", maxWidth: 760, margin: "10px auto 0", lineHeight: 1.55 },
 
   mainStack: { maxWidth: 1024, margin: "0 auto", display: "grid", gap: 18 },
 
@@ -848,13 +844,13 @@ const styles = {
     background: "rgba(255,255,255,0.70)",
     border: "1px solid rgba(15,23,42,0.08)",
     borderRadius: 26,
-    padding: 26,
+    padding: "clamp(16px, 3vw, 26px)",
     boxShadow: "0 14px 40px rgba(2,6,23,0.06)",
     backdropFilter: "blur(14px)",
   },
 
-  cardTopRow: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 14, marginBottom: 14 },
-  cardTitle: { fontSize: 26, fontWeight: 850, color: "#0f172a", letterSpacing: "-0.01em" },
+  cardTopRow: { display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: 14, marginBottom: 14 },
+  cardTitle: { fontSize: "clamp(20px, 3vw, 26px)", fontWeight: 850, color: "#0f172a", letterSpacing: "-0.01em" },
 
   dropdownWrap: {
     display: "flex",
@@ -869,7 +865,7 @@ const styles = {
   dropdownLabel: { fontSize: 13, color: "#475569", fontWeight: 700 },
   dropdown: { border: "none", outline: "none", background: "transparent", fontWeight: 800, color: "#0f172a", cursor: "pointer" },
 
-  summaryStrip: { display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 10, marginBottom: 14 },
+  summaryStrip: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 10, marginBottom: 14 },
   summaryChip: {
     borderRadius: 16,
     padding: "10px 12px",
@@ -887,12 +883,9 @@ const styles = {
   summaryUpcoming: { background: "rgba(219,234,254,0.45)", border: "1px solid rgba(59,130,246,0.18)" },
   summaryCompleted: { background: "rgba(220,252,231,0.55)", border: "1px solid rgba(34,197,94,0.18)" },
 
-  tableWrap: { maxHeight: 360, overflow: "auto", borderRadius: 16 },
-  table: { display: "grid", gap: 4 },
+  tableWrap: { overflowX: "auto", overflowY: "hidden", borderRadius: 16 },
+  table: { display: "grid", gap: 4, minWidth: 560 },
   tableHeaderSticky: {
-    position: "sticky",
-    top: 0,
-    zIndex: 2,
     display: "grid",
     gridTemplateColumns: "2fr 1.5fr 1fr",
     gap: 14,
@@ -980,18 +973,20 @@ const styles = {
 
   reminderRow: {
     display: "grid",
-    gridTemplateColumns: "1fr 1fr",
+    gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 280px), 1fr))",
     gap: 18,
     justifyContent: "center",
     alignItems: "stretch",
   },
 
   emailCard: {
-    width: "min(520px, 92vw)",
+    width: "100%",
+    minWidth: 0,
+    boxSizing: "border-box",
     background: "rgba(255,255,255,0.70)",
     border: "1px solid rgba(15,23,42,0.08)",
     borderRadius: 26,
-    padding: 26,
+    padding: "clamp(16px, 3vw, 26px)",
     boxShadow: "0 14px 40px rgba(2,6,23,0.06)",
     backdropFilter: "blur(14px)",
     display: "flex",

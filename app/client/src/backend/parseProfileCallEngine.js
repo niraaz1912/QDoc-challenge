@@ -1,5 +1,5 @@
 
-import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
+import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 
 import { RULE_SET } from "./ruleSet.js";
 import { preprocessRuleSet, evaluateAllVaccines } from "./ruleEngine.js";

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useAuthContext } from "../../context/AuthContext";
+import { useAuthContext } from "../../context/AuthStore";
 import "./ClusterLive.css";
 
 const empty = { nodes: [], pods: [], services: [], deployments: [], at: null, sequence: 0 };

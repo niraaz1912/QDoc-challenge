@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
+import { doc, serverTimestamp, setDoc } from "firebase/firestore";
 import { Link, useNavigate } from "react-router-dom";
 import { db } from "../../firebase";
 import { useAuth } from "../../hooks/useAuth";

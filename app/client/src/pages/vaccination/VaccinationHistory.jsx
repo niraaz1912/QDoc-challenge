@@ -31,7 +31,6 @@ export default function VaccinationHistory() {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const { userRuleEngineResult } = useAuth();
 
   useEffect(() => {
     async function loadVaccinations() {

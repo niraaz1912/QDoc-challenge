@@ -1,125 +1,3 @@
-import { RULE_SET } from "./ruleSet.js";
-
-const PROFILES = {
-  // 1) Teen: HPV dose 2 overdue
-  teen_hpv_overdue: {
-    userId: "t1",
-    isPrimary: true,
-    firstName: "A",
-    lastName: "Teen",
-    dateOfBirth: "2012-03-01",
-    gender: "MALE",
-    postalCode: "R3T 2N2",
-    chronicConditions: [],
-    riskTags: ["GRADE6_PROGRAM"],  // valid tag in RULESET_REAL
-    familyMembers: [],
-    vaccinationHistory: [
-      { vaccineKey: "HPV", date: "2025-01-10" }
-    ],
-    createdAt: null,
-    updatedAt: null
-  },
-
-  // 2) Pregnant adult: Make the pregnancy clause actually match (priority 5)
-  // Because your pregnancy clause has minDaysSinceLastDose: 270,
-  // we include a prior TDAP far enough in the past.
-  pregnant_tdap: {
-    userId: "p1",
-    isPrimary: true,
-    firstName: "P",
-    lastName: "Pregnant",
-    dateOfBirth: "1995-08-20",
-    gender: "FEMALE",
-    postalCode: "R2C 0A1",
-    chronicConditions: [],
-    riskTags: ["PREGNANT"],
-    familyMembers: [],
-    vaccinationHistory: [
-      { vaccineKey: "TDAP", date: "2024-01-01" } // >270 days before 2026-02-20
-    ],
-    createdAt: null,
-    updatedAt: null
-  },
-
-  // 3) Senior: PNEU_C20 eligible now (65+), RSV eligible (60–74 + DIABETES)
-  senior_pneu_rsv: {
-    userId: "s1",
-    isPrimary: true,
-    firstName: "S",
-    lastName: "Senior",
-    dateOfBirth: "1958-05-01",
-    gender: "MALE",
-    postalCode: "R3T 2N2",
-    chronicConditions: ["DIABETES"], // optional; engine doesn’t use chronic by default
-    riskTags: ["DIABETES"],          // MUST be in riskTags to match your rules
-    familyMembers: [],
-    vaccinationHistory: [],
-    createdAt: null,
-    updatedAt: null
-  },
-
-  // 4) MenB high risk: eligible now, 2-dose series
-  menb_high_risk: {
-    userId: "m1",
-    isPrimary: true,
-    firstName: "M",
-    lastName: "MenB",
-    dateOfBirth: "2006-01-10",
-    gender: "MALE",
-    postalCode: "R3T 2N2",
-    chronicConditions: [],
-    riskTags: ["MENB_HIGH_RISK"],
-    familyMembers: [],
-    vaccinationHistory: [],
-    createdAt: null,
-    updatedAt: null
-  },
-
-  // 5) Child MMR: dose 2 due soon (48-month milestone)
-  // DOB 2022-03-05 => dose2 due 2026-03-05 which is within 30 days of 2026-02-20
-  child_mmr_due_soon: {
-    userId: "c1",
-    isPrimary: true,
-    firstName: "C",
-    lastName: "Child",
-    dateOfBirth: "2022-03-05",
-    gender: "FEMALE",
-    postalCode: "R3T 2N2",
-    chronicConditions: [],
-    riskTags: [],
-    familyMembers: [],
-    vaccinationHistory: [
-      { vaccineKey: "MMR", date: "2023-03-05" }
-    ],
-    createdAt: null,
-    updatedAt: null
-  },
-
-  // 6) Mpox: dose 2 overdue (dose1 + 28 days < asOf)
-  mpox_dose2_overdue: {
-    userId: "x1",
-    isPrimary: true,
-    firstName: "X",
-    lastName: "Mpox",
-    dateOfBirth: "1996-06-15",
-    gender: "MALE",
-    postalCode: "R3T 2N2",
-    chronicConditions: [],
-    riskTags: ["MPOX_POST_EXPOSURE_CLOSE_CONTACT"],
-    familyMembers: [],
-    vaccinationHistory: [
-      { vaccineKey: "MPOX", date: "2026-01-15" }
-    ],
-    createdAt: null,
-    updatedAt: null
-  }
-};
-
-// Choose ONE to run as "profile"
-const profile = PROFILES.mpox_dose2_overdue;
-
-const RULESET_REAL = RULE_SET;
-
 /*******************************
  * STEP 1 — preprocessRuleSet(ruleSet)
  *
@@ -213,7 +91,11 @@ function preprocessRuleSet(ruleSet) {
     });
 
     // Remove private sort helper before returning (optional)
-    const finalizedClauses = clauses.map(({ __order, ...rest }) => rest);
+    const finalizedClauses = clauses.map((clause) => {
+      const finalized = { ...clause };
+      delete finalized.__order;
+      return finalized;
+    });
 
     const processed = {
       ...raw,
@@ -702,12 +584,6 @@ function addMonthsClampedUTC(dateUTC, monthsToAdd) {
   return new Date(Date.UTC(targetYear, targetMonth, clampedDay));
 }
 
-function maxISO(a, b) {
-  if (a == null) return b;
-  if (b == null) return a;
-  return a > b ? a : b;
-}
-
 // ---- Step 7 main ----
 
 function computeNextDose(rule, clause, p, doseIndex, seriesUsed, requiredDoses, asOfISO) {
@@ -1118,45 +994,5 @@ function evaluateAllVaccines(profile, pre, options = {}) {
 
   return results;
 }
-
-const preReal = preprocessRuleSet(RULE_SET);
-
-function getAllVaccineKeys(pre) {
-  return Object.keys(pre.rulesByKey).sort();
-}
-
-function getAllRiskTagsFromRules(pre) {
-  const tags = new Set();
-  for (const rule of pre.vaccineRules) {
-    for (const c of rule.clauses || []) {
-      for (const t of c.requireRiskTagsAny || []) tags.add(String(t));
-      for (const t of c.forbidRiskTagsAny || []) tags.add(String(t));
-    }
-  }
-  return [...tags].sort();
-}
-
-const AS_OF = "2026-02-20"
-
-// console.log("VACCINE KEYS:", getAllVaccineKeys(preReal));
-// console.log("RISK TAG KEYS:", getAllRiskTagsFromRules(preReal));
-
-// 
-
-const results = evaluateAllVaccines(profile, preReal)
-    
-
-// Print only useful fields (and reasons for the chatbot)
-// console.log(
-//   results.map(r => ({
-//     vaccineKey: r.vaccineKey,
-//     status: r.status,
-//     dueDate: r.dueDate,
-//     remainingDoses: r.remainingDoses,
-//     nextDoseNumber: r.nextDoseNumber,
-//     matchedClauseId: r.matchedClauseId,
-//     reasons: r.reasons
-//   }))
-// );
 
 export {preprocessRuleSet, evaluateAllVaccines};
