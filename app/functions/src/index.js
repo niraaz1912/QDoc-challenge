@@ -140,7 +140,7 @@ app.post("/chat", requireFirebaseUser, async (req, res) => {
     if (!question) return res.status(400).json({ error: "Missing question" });
 
     const apiKey = process.env.GEMINI_API_KEY;
-    const model = process.env.GEMINI_MODEL || "gemini-3.8-flash";
+    const model = process.env.GEMINI_MODEL || "gemini-3.5-flash-lite";
     if (!apiKey) return res.status(500).json({ error: "Missing GEMINI_API_KEY" });
 
     const ai = new GoogleGenAI({ apiKey });
