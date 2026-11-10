@@ -82,4 +82,4 @@ Include clear visual indications (e.g.: color-coded status)
 
 Identify vaccines due within x days.
 
-Simulate email reminder, SMS alert, and/or in-app notification.
+Simulate email reminders and in-app notifications.

@@ -70,7 +70,7 @@ outreachLogs/{logId}
 
 profileId: string
 vaccineKey: string
-contactMethod: "EMAIL" | "SMS"
+contactMethod: "EMAIL"
 createdAt: timestamp
 
 

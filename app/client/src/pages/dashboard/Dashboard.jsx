@@ -8,12 +8,9 @@ import { syncVaccinesToGoogleCalendar } from "../../utils/googleCalendar";
 
 import emailjs from "@emailjs/browser";
 
-// ✅ NOTE: For production, move these into .env (VITE_*) instead of hardcoding.
-const EMAILJS_SERVICE_ID = "service_em93nf8";
-const EMAILJS_TEMPLATE_ID = "template_4crvvca";
-const EMAILJS_PUBLIC_KEY = "U_wAcJ6IGtZLCbELK";
-
-import { sendTestSms } from "../../backend/sendTestSms";
+const EMAILJS_SERVICE_ID = import.meta.env.VITE_EMAILJS_SERVICE_ID;
+const EMAILJS_TEMPLATE_ID = import.meta.env.VITE_EMAILJS_TEMPLATE_ID;
+const EMAILJS_PUBLIC_KEY = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
 
 const DAY_OPTIONS = [1, 7, 14, 30, 60];
 
@@ -61,17 +58,6 @@ function coerceArray(result) {
   if (Array.isArray(result)) return result;
   if (result && typeof result === "object") return Object.values(result);
   return [];
-}
-
-function buildShortSms(toName, daysWindow, reminderItems) {
-  const top = reminderItems.slice(0, 3); // keep short
-  const lines = top.map((v) => {
-    const remaining = v.daysUntil <= 0 ? "DUE" : `${v.daysUntil}d`;
-    return `${v.name} ${v.duePretty} (${remaining})`;
-  });
-
-  const more = reminderItems.length > top.length ? ` +${reminderItems.length - top.length} more` : "";
-  return `VaxTrack: Hi ${toName}. Next ${daysWindow}d: ${lines.join(" | ")}${more}`;
 }
 
 function statusPillStyle(status) {
@@ -557,6 +543,9 @@ export default function Dashboard() {
                     .join("\n");
 
                   try {
+                    if (!EMAILJS_SERVICE_ID || !EMAILJS_TEMPLATE_ID || !EMAILJS_PUBLIC_KEY) {
+                      throw new Error("Email is not configured. Set the VITE_EMAILJS_* values and rebuild the frontend.");
+                    }
                     await emailjs.send(
                       EMAILJS_SERVICE_ID,
                       EMAILJS_TEMPLATE_ID,
@@ -575,7 +564,7 @@ export default function Dashboard() {
                     alert(`✅ Test email sent for vaccines due within next ${days} day(s)!`);
                   } catch (e) {
                     console.error(e);
-                    alert("❌ Failed to send email. Check EmailJS/Brevo settings.");
+                    alert(`❌ Failed to send email: ${e?.text || e?.message || "Unknown error. Check EmailJS settings."}`);
                   }
                 }}
               >
@@ -585,107 +574,6 @@ export default function Dashboard() {
               <div style={styles.helperText}>Sends to your account email.</div>
             </div>
 
-            {/* SMS */}
-            <div style={styles.emailCard}>
-              <div style={styles.emailTitle}>Simulate SMS Reminder</div>
-              <div style={styles.cardSubText}>
-                Sends a test SMS to your profile phone number{" "}
-                <b style={{ color: "#0f172a" }}>
-                  {chatContext?.profile?.phoneNumber ? `(${chatContext.profile.phoneNumber})` : "(none on file)"}
-                </b>
-                .
-              </div>
-
-              <div style={styles.topBlock}>
-                <div style={styles.rowBetween}>
-                  <div style={styles.emailRowLabel}>Enable Reminders</div>
-
-                  <button
-                    type="button"
-                    onClick={() => setRemindersEnabled((p) => !p)}
-                    style={{
-                      ...styles.toggle,
-                      background: remindersEnabled ? "#3b82f6" : "rgba(15,23,42,0.10)",
-                      justifyContent: remindersEnabled ? "flex-end" : "flex-start",
-                    }}
-                    aria-label="Toggle reminders"
-                  >
-                    <span style={styles.toggleKnob} />
-                  </button>
-                </div>
-
-                <div style={{ marginTop: 14 }}>
-                  <div style={styles.inputLabel}>Reminder timing</div>
-                  <select
-                    value={reminderTiming}
-                    onChange={(e) => setReminderTiming(e.target.value)}
-                    style={styles.selectBox}
-                  >
-                    <option>On due date</option>
-                    <option>1 day before</option>
-                    <option>7 days before</option>
-                    <option>14 days before</option>
-                  </select>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                style={styles.primaryBlueBtn}
-                onClick={async () => {
-                  const toName = userDoc?.displayName || titleName || "User";
-                  const toPhone = (chatContext?.profile?.phoneNumber || userDoc?.phoneNumber || "").trim();
-
-                  if (!toPhone) {
-                    alert("No phone number found for this account.");
-                    return;
-                  }
-
-                  if (!remindersEnabled) {
-                    alert("Reminders are disabled. Turn them on to send reminders.");
-                    return;
-                  }
-
-                  const all = coerceArray(userRuleEngineResult?.result).map((item, idx) => {
-                    const vaccineKey = String(item?.vaccineKey ?? "").trim();
-                    const dueDate = item?.dueDate ?? null;
-
-                    const name =
-                      VACCINES[vaccineKey] ||
-                      item?.displayName ||
-                      vaccineKey ||
-                      `Vaccine ${idx + 1}`;
-
-                    const status = getUiStatus(item?.status, dueDate);
-                    const du = daysUntil(dueDate);
-
-                    return { id: vaccineKey || idx, name, dueDate, duePretty: formatDatePretty(dueDate), status, daysUntil: du };
-                  });
-
-                  const reminderItems = all
-                    .filter((r) => r.dueDate && r.status !== UI_STATUS.NOT_ELIGIBLE && r.status !== UI_STATUS.COMPLETED && r.daysUntil != null && r.daysUntil <= days)
-                    .sort((a, b) => (a.daysUntil ?? 999999) - (b.daysUntil ?? 999999));
-
-                  if (!reminderItems.length) {
-                    alert(`No vaccines due in the next ${days} day(s).`);
-                    return;
-                  }
-
-                  const message = buildShortSms(toName, days, reminderItems);
-
-                  const resp = await sendTestSms(toPhone, message);
-                  if (!resp.ok) {
-                    alert(`❌ SMS failed: ${resp.error}`);
-                    return;
-                  }
-                  alert(`✅ SMS sent! (sid: ${resp.sid || "n/a"})`);
-                }}
-              >
-                📱 Send Test SMS
-              </button>
-
-              <div style={styles.helperText}>Mock SMS only (hook to Twilio later).</div>
-            </div>
           </div>
         </div>
       </div>

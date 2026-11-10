@@ -32,7 +32,7 @@ function loadGoogleIdentityScript() {
 function getTokenClient() {
   if (!GOOGLE_CLIENT_ID) {
     throw new Error(
-      "Missing Google Calendar client ID. Set GOOGLE_CALENDAR_CLIENT_ID in app/functions/.env."
+      "Missing Google Calendar client ID. Set VITE_GOOGLE_CALENDAR_CLIENT_ID in app/client/.env locally or in GitHub Actions repository variables for deployment, then rebuild the frontend."
     );
   }
 

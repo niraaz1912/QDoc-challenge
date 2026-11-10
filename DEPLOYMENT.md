@@ -72,8 +72,11 @@ Set these GitHub environment variables:
 | `VITE_FIREBASE_AUTH_DOMAIN` | Firebase web app auth domain |
 | `VITE_FIREBASE_PROJECT_ID` | Firebase project ID |
 | `VITE_FIREBASE_APP_ID` | Firebase web app ID |
-| `VITE_GOOGLE_CALENDAR_CLIENT_ID` | Optional Google Calendar client ID |
+| `VITE_GOOGLE_CALENDAR_CLIENT_ID` | Google OAuth web client ID required for Calendar sync; add the deployed frontend origin to its authorized JavaScript origins |
 | `VITE_GOOGLE_CALENDAR_REDIRECT_URI` | Optional Calendar redirect URI |
+| `VITE_EMAILJS_SERVICE_ID` | EmailJS service ID for test reminders |
+| `VITE_EMAILJS_TEMPLATE_ID` | EmailJS template ID; template must accept `to_email`, `to_name`, and `vaccines_text` |
+| `VITE_EMAILJS_PUBLIC_KEY` | EmailJS public key |
 
 The Firebase web app values are embedded in the React bundle at build time, as Firebase expects. Keep the Gemini key and service account JSON only in GitHub secrets. The Docker build contexts exclude local `.env` files.
 
@@ -127,7 +130,7 @@ kubectl -n qdoc exec deployment/backend -- node scripts/grant-cluster-viewer.js 
 
 ## Production follow-up
 
-The manifest still exposes HTTP on a public Azure load balancer for initial verification and rollback. After the Cloudflare hostname works, change the frontend service to `ClusterIP` to remove direct public HTTP access. The one-node AKS cluster and `emptyDir` Prometheus storage are for development only; use persistent monitoring storage for a resilient service. Existing SMS integration calls a separate Twilio Function and is not deployed by this pipeline.
+The manifest still exposes HTTP on a public Azure load balancer for initial verification and rollback. After the Cloudflare hostname works, change the frontend service to `ClusterIP` to remove direct public HTTP access. The one-node AKS cluster and `emptyDir` Prometheus storage are for development only; use persistent monitoring storage for a resilient service.
 
 ## Local development
 

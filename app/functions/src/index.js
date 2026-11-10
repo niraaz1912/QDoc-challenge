@@ -80,7 +80,6 @@ function summarizeContext(context) {
     },
     reminderPreferences: {
       emailEnabled: reminderPrefs?.emailEnabled ?? false,
-      smsEnabled: reminderPrefs?.smsEnabled ?? false,
     },
     eligibility: {
       uid: eligibility?.uid ?? null,

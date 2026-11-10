@@ -69,6 +69,9 @@ jobs:
           VITE_FIREBASE_APP_ID: ${{ vars.VITE_FIREBASE_APP_ID }}
           VITE_GOOGLE_CALENDAR_CLIENT_ID: ${{ vars.VITE_GOOGLE_CALENDAR_CLIENT_ID }}
           VITE_GOOGLE_CALENDAR_REDIRECT_URI: ${{ vars.VITE_GOOGLE_CALENDAR_REDIRECT_URI }}
+          VITE_EMAILJS_SERVICE_ID: ${{ vars.VITE_EMAILJS_SERVICE_ID }}
+          VITE_EMAILJS_TEMPLATE_ID: ${{ vars.VITE_EMAILJS_TEMPLATE_ID }}
+          VITE_EMAILJS_PUBLIC_KEY: ${{ vars.VITE_EMAILJS_PUBLIC_KEY }}
         run: |
           set -euo pipefail
           ACR_LOGIN_SERVER="$(az acr show --name "$ACR_NAME" --query loginServer -o tsv)"
@@ -80,6 +83,9 @@ jobs:
             --build-arg "VITE_FIREBASE_APP_ID=$VITE_FIREBASE_APP_ID" \
             --build-arg "VITE_GOOGLE_CALENDAR_CLIENT_ID=$VITE_GOOGLE_CALENDAR_CLIENT_ID" \
             --build-arg "VITE_GOOGLE_CALENDAR_REDIRECT_URI=$VITE_GOOGLE_CALENDAR_REDIRECT_URI" \
+            --build-arg "VITE_EMAILJS_SERVICE_ID=$VITE_EMAILJS_SERVICE_ID" \
+            --build-arg "VITE_EMAILJS_TEMPLATE_ID=$VITE_EMAILJS_TEMPLATE_ID" \
+            --build-arg "VITE_EMAILJS_PUBLIC_KEY=$VITE_EMAILJS_PUBLIC_KEY" \
             --tag "$ACR_LOGIN_SERVER/qdoc-frontend:$GITHUB_SHA" app
           docker build --file app/functions/Dockerfile \
             --tag "$ACR_LOGIN_SERVER/qdoc-backend:$GITHUB_SHA" app/functions
